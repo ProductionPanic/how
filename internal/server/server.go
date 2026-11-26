@@ -85,11 +85,11 @@ func port(host string) string {
 }
 
 // Start launches Ollama in the background. On macOS the app is preferred
-// when Ollama should listen on its default port; otherwise `ollama serve`
-// is started detached, listening on host.
+// when Ollama should listen on its default port, started hidden as it is at
+// login; otherwise `ollama serve` is started detached, listening on host.
 func Start(in Install, host string) error {
 	if in.App != "" && (port(host) == "11434" || in.Binary == "") {
-		return exec.Command("open", "-g", "-a", in.App).Run()
+		return exec.Command("open", "-g", "-a", in.App, "--args", "hidden").Run()
 	}
 	if in.Binary == "" {
 		return errors.New("ollama is not installed")
