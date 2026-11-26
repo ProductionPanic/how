@@ -4,14 +4,14 @@
 
 Wens van de gebruiker (2026-11-26): als `how` een commando met een placeholder voorstelt (bijv. `tail -f <file>`), wil je alleen die waarde snel invullen voordat het commando draait. Nu gaat zo'n commando ongewijzigd naar de shell en faalt het (`<file>` wordt als redirect gelezen).
 
-- [ ] `internal/suggest/suggest.go`: voeg de inhoud van de huidige map toe aan de systeemprompt, zodat het model zelf het juiste bestand kan kiezen. Maximaal 50 items, niet recursief, mappen met een `/` erachter, verborgen bestanden overslaan behalve nuttige zoals `.env`, en "… and N more" als de lijst is afgekapt. Als de map niet te lezen is, laat je de lijst zonder foutmelding weg.
-- [ ] Herken placeholders in het voorgestelde commando met `<[a-zA-Z][\w-]*>`. Echte shell-syntax zoals `<<EOF`, `<(cmd)`, `2>&1` en `< input.txt` telt niet mee.
-- [ ] `internal/ui/ask.go`: heeft het commando placeholders, dan gaat enter meteen naar een invulformulier. Elke unieke placeholder krijgt één tekstveld met de naam als label. Enter gaat naar het volgende veld, en na het laatste draait het ingevulde commando.
-- [ ] Kopiëren (`c`) gaat ook via het formulier, zodat een commando nooit met placeholders erin gekopieerd of uitgevoerd wordt.
-- [ ] Komt een placeholder vaker voor (bijv. `cp <file> <file>.bak`), dan vraag je hem één keer en vul je hem overal in.
-- [ ] Een ingevulde waarde krijgt alleen enkele quotes als er spaties of speciale shell-tekens in zitten (`tail -f app.log` blijft zonder quotes).
+- [x] `internal/suggest/suggest.go`: voeg de inhoud van de huidige map toe aan de systeemprompt, zodat het model zelf het juiste bestand kan kiezen. Maximaal 50 items, niet recursief, mappen met een `/` erachter, verborgen bestanden overslaan behalve nuttige zoals `.env`, en "… and N more" als de lijst is afgekapt. Als de map niet te lezen is, laat je de lijst zonder foutmelding weg.
+- [x] Herken placeholders in het voorgestelde commando met `<[a-zA-Z][\w-]*>`. Echte shell-syntax zoals `<<EOF`, `<(cmd)`, `2>&1` en `< input.txt` telt niet mee.
+- [x] `internal/ui/ask.go`: heeft het commando placeholders, dan gaat enter meteen naar een invulformulier. Elke unieke placeholder krijgt één tekstveld met de naam als label. Enter gaat naar het volgende veld, en na het laatste draait het ingevulde commando.
+- [x] Kopiëren (`c`) gaat ook via het formulier, zodat een commando nooit met placeholders erin gekopieerd of uitgevoerd wordt.
+- [x] Komt een placeholder vaker voor (bijv. `cp <file> <file>.bak`), dan vraag je hem één keer en vul je hem overal in.
+- [x] Een ingevulde waarde krijgt alleen enkele quotes als er spaties of speciale shell-tekens in zitten (`tail -f app.log` blijft zonder quotes).
 - [x] Besloten (2026-11-26): de printmodus (`-p`, of als de uitvoer gepipet wordt) blijft ongewijzigd.
-- [ ] Tests voor het herkennen van placeholders, het samenvoegen van dubbele placeholders, het quoten en de bestandslijst. Draai `how` daarna zelf in een terminal met een vraag die een placeholder oplevert, en controleer het formulier, de run en de copy.
+- [x] Tests voor het herkennen van placeholders, het samenvoegen van dubbele placeholders, het quoten en de bestandslijst. Draai `how` daarna zelf in een terminal met een vraag die een placeholder oplevert, en controleer het formulier, de run en de copy.
 
 ## 2. Bestandskiezer voor bestands-placeholders
 

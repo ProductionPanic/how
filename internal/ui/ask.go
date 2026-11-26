@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -35,6 +36,7 @@ const (
 	askLoading askState = iota
 	askResult
 	askEditing
+	askFilling
 	askDone
 )
 
@@ -56,6 +58,13 @@ type askModel struct {
 	sugg    suggest.Suggestion
 	result  AskResult
 	note    string
+
+	// Fill-in form for placeholders like <file>.
+	command string            // command being filled in
+	names   []string          // unique placeholder names, in order
+	fields  []textinput.Model // one input per name
+	field   int               // focused field
+	pending AskAction         // what to do once the form is complete
 }
 
 // RunAsk shows a spinner while the model thinks, then lets the user run,
@@ -133,6 +142,8 @@ func (m askModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateResult(msg)
 		case askEditing:
 			return m.updateEditing(msg)
+		case askFilling:
+			return m.updateFilling(msg)
 		}
 	}
 	return m, nil
@@ -141,13 +152,9 @@ func (m askModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m askModel) updateResult(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter", "y":
-		return m.finish(AskResult{Action: ActionRun, Command: m.sugg.Command})
+		return m.complete(ActionRun, m.sugg.Command)
 	case "c":
-		if err := clipboard.WriteAll(m.sugg.Command); err != nil {
-			m.note = errorStyle.Render("copy failed: " + err.Error())
-			return m, nil
-		}
-		return m.finish(AskResult{Action: ActionCopy, Command: m.sugg.Command})
+		return m.complete(ActionCopy, m.sugg.Command)
 	case "e":
 		m.state = askEditing
 		m.input.SetValue(m.sugg.Command)
@@ -171,7 +178,8 @@ func (m askModel) updateEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd == "" {
 			return m, nil
 		}
-		return m.finish(AskResult{Action: ActionRun, Command: cmd})
+		m.input.Blur()
+		return m.complete(ActionRun, cmd)
 	case "esc":
 		m.input.Blur()
 		m.state = askResult
@@ -179,6 +187,86 @@ func (m askModel) updateEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+// complete runs or copies command, first asking for any placeholders in it.
+func (m askModel) complete(action AskAction, command string) (tea.Model, tea.Cmd) {
+	names := suggest.Placeholders(command)
+	if len(names) == 0 {
+		return m.act(action, command)
+	}
+	m.state = askFilling
+	m.command = command
+	m.names = names
+	m.pending = action
+	m.note = ""
+	width := 0
+	for _, n := range names {
+		width = max(width, len(n))
+	}
+	m.fields = make([]textinput.Model, len(names))
+	for i, n := range names {
+		ti := textinput.New()
+		ti.Prompt = promptStyle.Render(fmt.Sprintf("%-*s ", width+1, n+":"))
+		ti.CharLimit = 0
+		m.fields[i] = ti
+	}
+	m.field = 0
+	return m, m.fields[0].Focus()
+}
+
+// act finishes with the command, copying it to the clipboard when asked.
+func (m askModel) act(action AskAction, command string) (tea.Model, tea.Cmd) {
+	if action == ActionCopy {
+		if err := clipboard.WriteAll(command); err != nil {
+			m.state = askResult
+			m.note = errorStyle.Render("copy failed: " + err.Error())
+			return m, nil
+		}
+	}
+	return m.finish(AskResult{Action: action, Command: command})
+}
+
+func (m askModel) values() map[string]string {
+	v := make(map[string]string, len(m.names))
+	for i, n := range m.names {
+		if val := m.fields[i].Value(); val != "" {
+			v[n] = val
+		}
+	}
+	return v
+}
+
+func (m askModel) focus(i int) (tea.Model, tea.Cmd) {
+	m.fields[m.field].Blur()
+	m.field = i
+	return m, m.fields[i].Focus()
+}
+
+func (m askModel) updateFilling(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.fields[m.field].Blur()
+		m.state = askResult
+		return m, nil
+	case "enter":
+		if m.fields[m.field].Value() == "" {
+			return m, nil
+		}
+		for i := range m.fields {
+			if m.fields[i].Value() == "" {
+				return m.focus(i)
+			}
+		}
+		return m.act(m.pending, suggest.Fill(m.command, m.values()))
+	case "tab", "down":
+		return m.focus((m.field + 1) % len(m.fields))
+	case "shift+tab", "up":
+		return m.focus((m.field + len(m.fields) - 1) % len(m.fields))
+	}
+	var cmd tea.Cmd
+	m.fields[m.field], cmd = m.fields[m.field].Update(msg)
 	return m, cmd
 }
 
@@ -209,6 +297,20 @@ func (m askModel) View() string {
 	case askEditing:
 		b.WriteString(m.input.View() + "\n\n")
 		b.WriteString(" " + helpLine("enter", "run", "esc", "back") + "\n")
+
+	case askFilling:
+		b.WriteString(commandBox.Render(commandStyle.Render(suggest.Fill(m.command, m.values()))) + "\n")
+		for _, f := range m.fields {
+			b.WriteString(" " + f.View() + "\n")
+		}
+		verb := "run"
+		if m.pending == ActionCopy {
+			verb = "copy"
+		}
+		b.WriteString("\n " + helpLine("enter", "next / "+verb, "tab", "switch field", "esc", "back") + "\n")
+		if m.note != "" {
+			b.WriteString(" " + m.note + "\n")
+		}
 
 	case askDone:
 		// Leave a compact record in the scrollback.
