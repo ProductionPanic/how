@@ -23,6 +23,9 @@ import (
 	"github.com/ProductionPanic/how/internal/ui"
 )
 
+// version is set at release time with -ldflags "-X main.version=...".
+var version = "dev"
+
 const usage = `how - ask a local Ollama model which command to run
 
 Usage:
@@ -30,6 +33,7 @@ Usage:
   how                    open the model manager (download, choose, delete models)
   how -p <question>      print only the command, no TUI (also used when piped)
   how -m <model> ...     use a different model for this question
+  how --version          print the version
 
 Config: %s
 `
@@ -52,6 +56,9 @@ func run(args []string) error {
 flags:
 	for len(args) > 0 && strings.HasPrefix(args[0], "-") {
 		switch args[0] {
+		case "-v", "--version":
+			fmt.Println("how", version)
+			return nil
 		case "-h", "--help":
 			p, _ := config.Path()
 			fmt.Printf(usage, p)

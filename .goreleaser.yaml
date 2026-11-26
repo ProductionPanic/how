@@ -1,0 +1,62 @@
+# Release config: push a tag like v0.2.0 and the Release workflow builds
+# binaries, publishes a GitHub release and updates the Homebrew tap.
+version: 2
+project_name: how
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - main: ./cmd/how
+    binary: how
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+homebrew_casks:
+  - name: how
+    binaries: [how]
+    homepage: https://github.com/ProductionPanic/how
+    description: Ask a local Ollama model which shell command to run
+    directory: Casks
+    commit_msg_template: "Update {{ .ProjectName }} to {{ .Tag }}"
+    repository:
+      owner: ProductionPanic
+      name: homebrew-tap
+      branch: main
+      # Pushed with a deploy key that only has write access to the tap.
+      git:
+        url: git@github.com:ProductionPanic/homebrew-tap.git
+        private_key: "{{ .Env.TAP_DEPLOY_KEY }}"
+    caveats: |
+      how needs Ollama: https://ollama.com/download (or `brew install ollama`).
+      Run `how` without arguments to pick or download a model.
+    hooks:
+      post:
+        # The binaries aren't Apple-signed; clear the quarantine flag so
+        # macOS doesn't block them.
+        install_steps: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/how"]
+          end

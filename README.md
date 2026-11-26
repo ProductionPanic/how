@@ -15,13 +15,13 @@ Commands that delete or overwrite data are shown in red with a warning.
 ## Install
 
 ```sh
-go install ./cmd/how   # installs to $(go env GOPATH)/bin/how
+brew install productionpanic/tap/how
 ```
 
-The repo is private, so installing straight from GitHub needs:
+Or with Go:
 
 ```sh
-GOPRIVATE=github.com/ProductionPanic/* go install github.com/ProductionPanic/how/cmd/how@latest
+go install github.com/ProductionPanic/how/cmd/how@latest
 ```
 
 Needs [Ollama](https://ollama.com/download) (`brew install ollama`). If it is
@@ -33,3 +33,13 @@ Config lives in
 `~/.config/how/config.json` (`model`, optional `host`; `$OLLAMA_HOST` is also respected).
 
 Tip: zsh treats `?` as a glob, so quote questions that end in one: `how "what's my ip?"`.
+
+## Releasing
+
+Push a version tag; the Release workflow builds binaries with GoReleaser,
+publishes a GitHub release and updates the cask in
+[ProductionPanic/homebrew-tap](https://github.com/ProductionPanic/homebrew-tap):
+
+```sh
+git tag v0.2.0 && git push origin v0.2.0
+```
