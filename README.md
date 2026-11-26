@@ -43,3 +43,7 @@ publishes a GitHub release and updates the cask in
 ```sh
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Freek Attema and ProductionPanic
