@@ -55,8 +55,8 @@ homebrew_casks:
     hooks:
       post:
         # The binaries aren't Apple-signed; clear the quarantine flag so
-        # macOS doesn't block them.
+        # macOS doesn't block them. Uses Homebrew's install-steps DSL.
         install_steps: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/how"]
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{" }}staged_path{{ "}}" }}/how"], must_succeed: false
           end
