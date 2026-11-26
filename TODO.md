@@ -17,8 +17,8 @@ Wens van de gebruiker (2026-11-26): als `how` een commando met een placeholder v
 
 Wens van de gebruiker (2026-11-26): bij een placeholder voor een bestand wil je een bestand uit de huidige map kunnen kiezen in plaats van het te typen.
 
-- [ ] Placeholders met `file`, `path`, `dir`, `log`, `src` of `dest` in de naam tonen onder het tekstveld de items van de huidige map, gefilterd terwijl je typt. Kies er een met de pijltjestoetsen en enter.
-- [ ] Je kunt altijd een eigen pad typen, ook als het niet in de lijst staat. Andere placeholders houden een gewoon tekstveld.
-- [ ] Tests voor het herkennen van bestands-placeholders en het filteren. Draai `how` daarna zelf in een terminal en controleer of kiezen en vrij typen allebei werken.
+- [x] Placeholders met `file`, `path`, `dir`, `log`, `src` of `dest` in de naam tonen onder het tekstveld de items van de huidige map, gefilterd terwijl je typt. Kies er een met de pijltjestoetsen en enter.
+- [x] Je kunt altijd een eigen pad typen, ook als het niet in de lijst staat. Andere placeholders houden een gewoon tekstveld.
+- [x] Tests voor het herkennen van bestands-placeholders en het filteren. Draai `how` daarna zelf in een terminal en controleer of kiezen en vrij typen allebei werken.
 
 ## Backlog

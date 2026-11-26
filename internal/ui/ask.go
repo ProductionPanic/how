@@ -65,6 +65,8 @@ type askModel struct {
 	fields  []textinput.Model // one input per name
 	field   int               // focused field
 	pending AskAction         // what to do once the form is complete
+	entries []string          // current directory, for the file picker
+	pick    int               // highlighted picker entry, -1 for none
 }
 
 // RunAsk shows a spinner while the model thinks, then lets the user run,
@@ -213,7 +215,19 @@ func (m askModel) complete(action AskAction, command string) (tea.Model, tea.Cmd
 		m.fields[i] = ti
 	}
 	m.field = 0
+	m.pick = -1
+	m.entries = listEntries(".")
 	return m, m.fields[0].Focus()
+}
+
+// matches returns the picker entries for the focused field, or nil when it
+// is not a file placeholder.
+func (m askModel) matches() []string {
+	name := m.names[m.field]
+	if !isFilePlaceholder(name) {
+		return nil
+	}
+	return filterEntries(m.entries, m.fields[m.field].Value(), wantsDir(name))
 }
 
 // act finishes with the command, copying it to the clipboard when asked.
@@ -241,6 +255,7 @@ func (m askModel) values() map[string]string {
 func (m askModel) focus(i int) (tea.Model, tea.Cmd) {
 	m.fields[m.field].Blur()
 	m.field = i
+	m.pick = -1
 	return m, m.fields[i].Focus()
 }
 
@@ -251,6 +266,11 @@ func (m askModel) updateFilling(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = askResult
 		return m, nil
 	case "enter":
+		if matches := m.matches(); m.pick >= 0 && m.pick < len(matches) {
+			m.fields[m.field].SetValue(matches[m.pick])
+			m.fields[m.field].CursorEnd()
+			m.pick = -1
+		}
 		if m.fields[m.field].Value() == "" {
 			return m, nil
 		}
@@ -260,11 +280,24 @@ func (m askModel) updateFilling(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m.act(m.pending, suggest.Fill(m.command, m.values()))
-	case "tab", "down":
+	case "down":
+		if n := min(len(m.matches()), maxMatches); n > 0 {
+			m.pick = min(m.pick+1, n-1)
+			return m, nil
+		}
 		return m.focus((m.field + 1) % len(m.fields))
-	case "shift+tab", "up":
+	case "up":
+		if m.pick >= 0 {
+			m.pick--
+			return m, nil
+		}
+		return m.focus((m.field + len(m.fields) - 1) % len(m.fields))
+	case "tab":
+		return m.focus((m.field + 1) % len(m.fields))
+	case "shift+tab":
 		return m.focus((m.field + len(m.fields) - 1) % len(m.fields))
 	}
+	m.pick = -1
 	var cmd tea.Cmd
 	m.fields[m.field], cmd = m.fields[m.field].Update(msg)
 	return m, cmd
@@ -300,14 +333,22 @@ func (m askModel) View() string {
 
 	case askFilling:
 		b.WriteString(commandBox.Render(commandStyle.Render(suggest.Fill(m.command, m.values()))) + "\n")
-		for _, f := range m.fields {
+		matches := m.matches()
+		for i, f := range m.fields {
 			b.WriteString(" " + f.View() + "\n")
+			if i == m.field {
+				b.WriteString(pickerView(matches, m.pick))
+			}
 		}
 		verb := "run"
 		if m.pending == ActionCopy {
 			verb = "copy"
 		}
-		b.WriteString("\n " + helpLine("enter", "next / "+verb, "tab", "switch field", "esc", "back") + "\n")
+		help := []string{"enter", "next / " + verb, "tab", "switch field", "esc", "back"}
+		if matches != nil {
+			help = append([]string{"↑↓", "pick"}, help...)
+		}
+		b.WriteString("\n " + helpLine(help...) + "\n")
 		if m.note != "" {
 			b.WriteString(" " + m.note + "\n")
 		}
@@ -320,6 +361,26 @@ func (m askModel) View() string {
 		case ActionCopy:
 			b.WriteString(promptStyle.Render("$ ") + commandStyle.Render(m.result.Command) + "  " + successStyle.Render("✓ copied") + "\n")
 		}
+	}
+	return b.String()
+}
+
+// pickerView renders the picker entries under a file field, highlighting
+// the picked one.
+func pickerView(matches []string, pick int) string {
+	if len(matches) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, e := range matches[:min(len(matches), maxMatches)] {
+		if i == pick {
+			b.WriteString("   " + selectedRow.Render("› "+e) + "\n")
+		} else {
+			b.WriteString("     " + mutedStyle.Render(e) + "\n")
+		}
+	}
+	if more := len(matches) - maxMatches; more > 0 {
+		b.WriteString("     " + mutedStyle.Render(fmt.Sprintf("… %d more, type to filter", more)) + "\n")
 	}
 	return b.String()
 }
