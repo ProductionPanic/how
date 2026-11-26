@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +21,10 @@ type Client struct {
 }
 
 func New(host string) *Client {
-	return &Client{Host: host, http: &http.Client{}}
+	// Only connecting is time-limited; model replies and downloads can be slow.
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DialContext = (&net.Dialer{Timeout: 3 * time.Second}).DialContext
+	return &Client{Host: host, http: &http.Client{Transport: tr}}
 }
 
 // ErrUnreachable means the Ollama server could not be contacted.

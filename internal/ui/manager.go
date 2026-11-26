@@ -2,9 +2,11 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/ProductionPanic/how/internal/config"
 	"github.com/ProductionPanic/how/internal/ollama"
+	"github.com/ProductionPanic/how/internal/server"
 )
 
 // DefaultModel is suggested when no models are installed yet.
@@ -58,6 +61,7 @@ type (
 		name string
 		err  error
 	}
+	startedMsg struct{ err error }
 	deletedMsg struct {
 		name string
 		err  error
@@ -74,6 +78,10 @@ type managerModel struct {
 	cursor  int
 	status  string
 	reachOK bool
+
+	// Set when Ollama is installed locally but not running.
+	canStart bool
+	starting bool
 
 	input    textinput.Model
 	spinner  spinner.Model
@@ -211,11 +219,12 @@ func (m managerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		if msg.err != nil {
 			m.reachOK = false
-			m.status = errorStyle.Render(msg.err.Error() + " — is `ollama serve` running?")
+			m.status = m.unreachableStatus(msg.err)
 			m.setItems(nil)
 			return m, nil
 		}
 		m.reachOK = true
+		m.canStart = false
 		m.setItems(msg.models)
 		if len(msg.models) == 0 && m.status == "" {
 			for i, it := range m.items {
@@ -226,6 +235,16 @@ func (m managerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = warnStyle.Render("No models installed yet.") + mutedStyle.Render(" Press enter to download "+DefaultModel+" (~"+DefaultModelSize+", recommended).")
 		}
 		return m, nil
+
+	case startedMsg:
+		m.starting = false
+		if msg.err != nil {
+			m.loading = false
+			m.status = errorStyle.Render("could not start Ollama: " + msg.err.Error())
+			return m, nil
+		}
+		m.status = ""
+		return m, m.loadModels()
 
 	case pullMsg:
 		m.pullStat = ollama.PullProgress(msg)
@@ -351,6 +370,20 @@ func (m managerModel) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = mgrConfirmDelete
 			m.status = warnStyle.Render(fmt.Sprintf("Delete %s? ", it.name)) + helpLine("y", "yes", "any key", "no")
 		}
+	case "s":
+		if !m.canStart || m.starting {
+			return m, nil
+		}
+		m.starting = true
+		m.loading = true
+		m.status = ""
+		client := m.client
+		return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
+			if err := server.Start(server.Find(), client.Host); err != nil {
+				return startedMsg{err}
+			}
+			return startedMsg{server.WaitReady(client, 30*time.Second)}
+		})
 	case "r":
 		m.loading = true
 		m.status = ""
@@ -424,14 +457,36 @@ func (m managerModel) View() string {
 		b.WriteString(" " + mutedStyle.Render("any model from ollama.com/library") + "\n\n")
 		b.WriteString(" " + helpLine("enter", "download", "esc", "back") + "\n")
 	default:
-		if m.status != "" {
+		if m.starting {
+			b.WriteString(" " + m.spinner.View() + mutedStyle.Render(" starting Ollama…") + "\n\n")
+		} else if m.status != "" {
 			b.WriteString(" " + m.status + "\n\n")
 		}
 		action := "use"
 		if it := m.selected(); it != nil && !it.installed {
 			action = "download"
 		}
-		b.WriteString(" " + helpLine("↑/↓", "move", "enter", action, "p", "pull by name", "d", "delete", "r", "refresh", "q", "quit") + "\n")
+		keys := []string{"↑/↓", "move", "enter", action, "p", "pull by name", "d", "delete", "r", "refresh", "q", "quit"}
+		if m.canStart {
+			keys = append([]string{"s", "start ollama"}, keys...)
+		}
+		b.WriteString(" " + helpLine(keys...) + "\n")
 	}
 	return b.String()
+}
+
+// unreachableStatus explains why Ollama can't be reached and what to do.
+func (m *managerModel) unreachableStatus(err error) string {
+	m.canStart = false
+	if !errors.Is(err, ollama.ErrUnreachable) {
+		return errorStyle.Render(err.Error())
+	}
+	if !server.IsLocal(m.client.Host) {
+		return errorStyle.Render("Ollama is not reachable at " + m.client.Host + ". Check that the server is up.")
+	}
+	if !server.Find().Found() {
+		return errorStyle.Render("Ollama isn't installed.") + mutedStyle.Render(" "+server.InstallHint+", then press r.")
+	}
+	m.canStart = true
+	return warnStyle.Render("Ollama isn't running.") + mutedStyle.Render(" Press s to start it.")
 }

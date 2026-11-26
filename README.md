@@ -24,7 +24,12 @@ The repo is private, so installing straight from GitHub needs:
 GOPRIVATE=github.com/ProductionPanic/* go install github.com/ProductionPanic/how/cmd/how@latest
 ```
 
-Needs Ollama running (`ollama serve` or the Ollama app). Config lives in
+Needs [Ollama](https://ollama.com/download) (`brew install ollama`). If it is
+installed but not running, `how` offers to start it (the Ollama app on macOS,
+otherwise `ollama serve` in the background, logging to `~/Library/Caches/how/ollama-serve.log`
+on macOS). In the model manager, press `s` to start it.
+
+Config lives in
 `~/.config/how/config.json` (`model`, optional `host`; `$OLLAMA_HOST` is also respected).
 
 Tip: zsh treats `?` as a glob, so quote questions that end in one: `how "what's my ip?"`.

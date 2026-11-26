@@ -12,11 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 
 	"github.com/ProductionPanic/how/internal/config"
 	"github.com/ProductionPanic/how/internal/ollama"
+	"github.com/ProductionPanic/how/internal/server"
 	"github.com/ProductionPanic/how/internal/suggest"
 	"github.com/ProductionPanic/how/internal/ui"
 )
@@ -112,8 +114,14 @@ flags:
 // installed it offers to download ui.DefaultModel when interactive is true.
 func pickModel(client *ollama.Client, cfg *config.Config, interactive bool) (string, error) {
 	models, err := client.List(context.Background())
+	if errors.Is(err, ollama.ErrUnreachable) {
+		if err := ensureRunning(client, interactive); err != nil {
+			return "", err
+		}
+		models, err = client.List(context.Background())
+	}
 	if err != nil {
-		return "", fmt.Errorf("%w\nStart it with `ollama serve` (or open the Ollama app)", err)
+		return "", err
 	}
 	if len(models) == 0 {
 		return offerDefaultModel(client, cfg, interactive)
@@ -140,11 +148,7 @@ func offerDefaultModel(client *ollama.Client, cfg *config.Config, interactive bo
 	if !interactive || !term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", hint
 	}
-	fmt.Fprintf(os.Stderr, "No Ollama models installed yet. Download %s (~%s, recommended)? [Y/n] ", ui.DefaultModel, ui.DefaultModelSize)
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "", "y", "yes":
-	default:
+	if !confirm(fmt.Sprintf("No Ollama models installed yet. Download %s (~%s, recommended)?", ui.DefaultModel, ui.DefaultModelSize)) {
 		return "", hint
 	}
 	if err := ui.RunPull(client, ui.DefaultModel); err != nil {
@@ -158,6 +162,49 @@ func offerDefaultModel(client *ollama.Client, cfg *config.Config, interactive bo
 		return "", fmt.Errorf("saving config: %w", err)
 	}
 	return cfg.Model, nil
+}
+
+// ensureRunning explains why Ollama can't be reached and, when it is
+// installed locally but not running, offers to start it.
+func ensureRunning(client *ollama.Client, interactive bool) error {
+	if !server.IsLocal(client.Host) {
+		return fmt.Errorf("ollama is not reachable at %s. Check that the server is up", client.Host)
+	}
+	in := server.Find()
+	if !in.Found() {
+		return fmt.Errorf("ollama isn't installed. %s, then try again", server.InstallHint)
+	}
+	notRunning := errors.New("ollama isn't running. Start it with `ollama serve` or open the Ollama app")
+	if !interactive || !term.IsTerminal(int(os.Stdin.Fd())) {
+		return notRunning
+	}
+	if !confirm("Ollama isn't running. Start it now?") {
+		return notRunning
+	}
+	err := ui.RunSpinner("Starting Ollama…", "Ollama is running", func() error {
+		if err := server.Start(in, client.Host); err != nil {
+			return err
+		}
+		return server.WaitReady(client, 30*time.Second)
+	})
+	switch {
+	case errors.Is(err, ui.ErrInterrupted):
+		return errors.New("stopped waiting for Ollama")
+	case err != nil:
+		return fmt.Errorf("could not start Ollama: %w (log: %s)", err, server.LogPath())
+	}
+	return nil
+}
+
+// confirm asks a yes/no question on stderr; enter means yes.
+func confirm(question string) bool {
+	fmt.Fprint(os.Stderr, question+" [Y/n] ")
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "", "y", "yes":
+		return true
+	}
+	return false
 }
 
 // execute runs the command in the user's shell with the terminal attached.
