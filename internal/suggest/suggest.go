@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/ProductionPanic/help-cli/internal/ollama"
+	"github.com/ProductionPanic/how/internal/ollama"
 )
 
 type Suggestion struct {

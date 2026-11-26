@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ProductionPanic/help-cli/internal/ollama"
-	"github.com/ProductionPanic/help-cli/internal/suggest"
+	"github.com/ProductionPanic/how/internal/ollama"
+	"github.com/ProductionPanic/how/internal/suggest"
 )
 
 // AskAction is what the user chose to do with the suggestion.

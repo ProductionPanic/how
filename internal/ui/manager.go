@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ProductionPanic/help-cli/internal/config"
-	"github.com/ProductionPanic/help-cli/internal/ollama"
+	"github.com/ProductionPanic/how/internal/config"
+	"github.com/ProductionPanic/how/internal/ollama"
 )
 
 // Recommended small models that work well for shell suggestions.
@@ -357,7 +357,7 @@ func (m managerModel) updateBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m managerModel) View() string {
 	var b strings.Builder
-	b.WriteString("\n " + titleStyle.Render("help") + mutedStyle.Render(" · model manager") + "\n")
+	b.WriteString("\n " + titleStyle.Render("how") + mutedStyle.Render(" · model manager") + "\n")
 	active := m.cfg.Model
 	if active == "" {
 		active = "none"

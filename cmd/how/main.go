@@ -1,7 +1,7 @@
-// Command help suggests a shell command for a question using a local Ollama model.
+// Command how suggests a shell command for a question using a local Ollama model.
 //
-//	help what is my git remote url   ask for a command
-//	help                             open the model manager
+//	how do I see my git remote url   ask for a command
+//	how                              open the model manager
 package main
 
 import (
@@ -14,26 +14,26 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/ProductionPanic/help-cli/internal/config"
-	"github.com/ProductionPanic/help-cli/internal/ollama"
-	"github.com/ProductionPanic/help-cli/internal/suggest"
-	"github.com/ProductionPanic/help-cli/internal/ui"
+	"github.com/ProductionPanic/how/internal/config"
+	"github.com/ProductionPanic/how/internal/ollama"
+	"github.com/ProductionPanic/how/internal/suggest"
+	"github.com/ProductionPanic/how/internal/ui"
 )
 
-const usage = `help - ask a local Ollama model which command to run
+const usage = `how - ask a local Ollama model which command to run
 
 Usage:
-  help <question>        suggest a command, e.g. help "what is my git remote url"
-  help                   open the model manager (download, choose, delete models)
-  help -p <question>     print only the command, no TUI (also used when piped)
-  help -m <model> ...    use a different model for this question
+  how <question>         suggest a command, e.g. how do I see my git remote url
+  how                    open the model manager (download, choose, delete models)
+  how -p <question>      print only the command, no TUI (also used when piped)
+  how -m <model> ...     use a different model for this question
 
 Config: %s
 `
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "help:", err)
+		fmt.Fprintln(os.Stderr, "how:", err)
 		os.Exit(1)
 	}
 }
@@ -67,7 +67,7 @@ flags:
 			args = args[1:]
 			break flags
 		default:
-			return fmt.Errorf("unknown flag %s (see help --help)", args[0])
+			return fmt.Errorf("unknown flag %s (see how --help)", args[0])
 		}
 	}
 	client := ollama.New(cfg.OllamaHost())
@@ -114,7 +114,7 @@ func pickModel(client *ollama.Client, cfg *config.Config) (string, error) {
 		return "", fmt.Errorf("%w\nStart it with `ollama serve` (or open the Ollama app)", err)
 	}
 	if len(models) == 0 {
-		return "", errors.New("no Ollama models installed. Run `help` without arguments to download one")
+		return "", errors.New("no Ollama models installed. Run `how` without arguments to download one")
 	}
 	if cfg.Model != "" {
 		for _, m := range models {
@@ -122,11 +122,11 @@ func pickModel(client *ollama.Client, cfg *config.Config) (string, error) {
 				return cfg.Model, nil
 			}
 		}
-		return "", fmt.Errorf("model %q is not installed. Run `help` without arguments to pick or download one", cfg.Model)
+		return "", fmt.Errorf("model %q is not installed. Run `how` without arguments to pick or download one", cfg.Model)
 	}
 	cfg.Model = models[0].Name
 	if err := cfg.Save(); err == nil {
-		fmt.Fprintf(os.Stderr, "No model chosen yet, using %s (change it by running `help`).\n", cfg.Model)
+		fmt.Fprintf(os.Stderr, "No model chosen yet, using %s (change it by running `how`).\n", cfg.Model)
 	}
 	return cfg.Model, nil
 }

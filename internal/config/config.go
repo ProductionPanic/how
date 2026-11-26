@@ -1,4 +1,4 @@
-// Package config loads and saves the help-cli settings file.
+// Package config loads and saves the how settings file.
 package config
 
 import (
@@ -11,8 +11,8 @@ import (
 
 const defaultHost = "http://localhost:11434"
 
-// Config is stored as JSON in ~/.config/help-cli/config.json
-// (or $XDG_CONFIG_HOME/help-cli/config.json).
+// Config is stored as JSON in ~/.config/how/config.json
+// (or $XDG_CONFIG_HOME/how/config.json).
 type Config struct {
 	// Model is the Ollama model used for suggestions, e.g. "qwen2.5-coder:3b".
 	Model string `json:"model"`
@@ -30,7 +30,7 @@ func Path() (string, error) {
 		}
 		dir = filepath.Join(home, ".config")
 	}
-	return filepath.Join(dir, "help-cli", "config.json"), nil
+	return filepath.Join(dir, "how", "config.json"), nil
 }
 
 // Load reads the config file. A missing file yields an empty config.

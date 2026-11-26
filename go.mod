@@ -1,4 +1,4 @@
-module github.com/ProductionPanic/help-cli
+module github.com/ProductionPanic/how
 
 go 1.26.3
 
