@@ -15,9 +15,15 @@ import (
 	"github.com/ProductionPanic/how/internal/ollama"
 )
 
+// DefaultModel is suggested when no models are installed yet.
+const DefaultModel = "qwen2.5-coder:1.5b"
+
+// DefaultModelSize is the approximate download size of DefaultModel.
+const DefaultModelSize = "1.0 GB"
+
 // Recommended small models that work well for shell suggestions.
 var recommended = []struct{ Name, Size, Desc string }{
-	{"qwen2.5-coder:1.5b", "1.0 GB", "fastest, good at shell commands"},
+	{DefaultModel, DefaultModelSize, "recommended · fast, good at shell commands"},
 	{"qwen2.5-coder:3b", "1.9 GB", "best balance of speed and quality"},
 	{"llama3.2:3b", "2.0 GB", "solid general-purpose model"},
 	{"gemma3:1b", "0.8 GB", "tiny, for low-memory machines"},
@@ -166,23 +172,13 @@ func (m *managerModel) use(name string) {
 
 func (m managerModel) startPull(name string) (tea.Model, tea.Cmd) {
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := make(chan tea.Msg, 64)
+	ch := startPull(ctx, m.client, name)
 	m.state = mgrPulling
 	m.pullName = name
 	m.pullStat = ollama.PullProgress{Status: "starting"}
 	m.pullCh = ch
 	m.cancel = cancel
 	m.status = ""
-	go func() {
-		err := m.client.Pull(ctx, name, func(p ollama.PullProgress) {
-			select {
-			case ch <- pullMsg(p):
-			default: // drop updates if the UI is behind
-			}
-		})
-		ch <- pullDoneMsg{name, err}
-		close(ch)
-	}()
 	return m, tea.Batch(waitFor(ch), m.spinner.Tick)
 }
 
@@ -221,6 +217,14 @@ func (m managerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.reachOK = true
 		m.setItems(msg.models)
+		if len(msg.models) == 0 && m.status == "" {
+			for i, it := range m.items {
+				if it.name == DefaultModel {
+					m.cursor = i
+				}
+			}
+			m.status = warnStyle.Render("No models installed yet.") + mutedStyle.Render(" Press enter to download "+DefaultModel+" (~"+DefaultModelSize+", recommended).")
+		}
 		return m, nil
 
 	case pullMsg:

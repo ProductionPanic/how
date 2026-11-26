@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -78,7 +79,7 @@ flags:
 	}
 
 	if model == "" {
-		model, err = pickModel(client, &cfg)
+		model, err = pickModel(client, &cfg, !printOnly)
 		if err != nil {
 			return err
 		}
@@ -107,14 +108,15 @@ flags:
 }
 
 // pickModel returns the configured model, or falls back to the first
-// installed one (and remembers it) when none is configured.
-func pickModel(client *ollama.Client, cfg *config.Config) (string, error) {
+// installed one (and remembers it) when none is configured. With no models
+// installed it offers to download ui.DefaultModel when interactive is true.
+func pickModel(client *ollama.Client, cfg *config.Config, interactive bool) (string, error) {
 	models, err := client.List(context.Background())
 	if err != nil {
 		return "", fmt.Errorf("%w\nStart it with `ollama serve` (or open the Ollama app)", err)
 	}
 	if len(models) == 0 {
-		return "", errors.New("no Ollama models installed. Run `how` without arguments to download one")
+		return offerDefaultModel(client, cfg, interactive)
 	}
 	if cfg.Model != "" {
 		for _, m := range models {
@@ -127,6 +129,33 @@ func pickModel(client *ollama.Client, cfg *config.Config) (string, error) {
 	cfg.Model = models[0].Name
 	if err := cfg.Save(); err == nil {
 		fmt.Fprintf(os.Stderr, "No model chosen yet, using %s (change it by running `how`).\n", cfg.Model)
+	}
+	return cfg.Model, nil
+}
+
+// offerDefaultModel asks to download the recommended model and, on yes,
+// downloads it and makes it the configured model.
+func offerDefaultModel(client *ollama.Client, cfg *config.Config, interactive bool) (string, error) {
+	hint := fmt.Errorf("no Ollama models installed. Download the recommended one with `ollama pull %s`, or run `how` to pick one", ui.DefaultModel)
+	if !interactive || !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", hint
+	}
+	fmt.Fprintf(os.Stderr, "No Ollama models installed yet. Download %s (~%s, recommended)? [Y/n] ", ui.DefaultModel, ui.DefaultModelSize)
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "", "y", "yes":
+	default:
+		return "", hint
+	}
+	if err := ui.RunPull(client, ui.DefaultModel); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return "", errors.New("download cancelled")
+		}
+		return "", fmt.Errorf("downloading %s: %w", ui.DefaultModel, err)
+	}
+	cfg.Model = ui.DefaultModel
+	if err := cfg.Save(); err != nil {
+		return "", fmt.Errorf("saving config: %w", err)
 	}
 	return cfg.Model, nil
 }
