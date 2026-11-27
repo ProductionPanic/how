@@ -34,6 +34,16 @@ Config lives in
 
 Tip: zsh treats `?` as a glob, so quote questions that end in one: `how "what's my ip?"`.
 
+## Comparing models
+
+`cmd/how-eval` asks a fixed set of questions (including follow-up chains) and
+checks the commands each model suggests. It needs Ollama running.
+
+```sh
+go run ./cmd/how-eval                              # every installed model
+go run ./cmd/how-eval -m qwen2.5-coder:7b,qwen3:4b -v
+```
+
 ## Releasing
 
 Push a version tag; the Release workflow builds binaries with GoReleaser,
