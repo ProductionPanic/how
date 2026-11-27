@@ -37,6 +37,7 @@ const (
 	askResult
 	askEditing
 	askFilling
+	askFollowUp
 	askDone
 )
 
@@ -51,10 +52,12 @@ type askModel struct {
 	client   *ollama.Client
 	model    string
 	question string
+	history  []suggest.Turn // earlier questions and answers, for follow-ups
 
 	state   askState
 	spinner spinner.Model
 	input   textinput.Model
+	follow  textinput.Model // follow-up question
 	sugg    suggest.Suggestion
 	result  AskResult
 	note    string
@@ -83,10 +86,15 @@ func RunAsk(client *ollama.Client, model, question string) (AskResult, error) {
 	ti.Prompt = promptStyle.Render("$ ")
 	ti.CharLimit = 0
 
+	fu := textinput.New()
+	fu.Prompt = promptStyle.Render("› ")
+	fu.Placeholder = "e.g. use wp-cli instead"
+	fu.CharLimit = 0
+
 	m := askModel{
 		ctx: ctx, cancel: cancel,
 		client: client, model: model, question: question,
-		spinner: sp, input: ti,
+		spinner: sp, input: ti, follow: fu,
 	}
 	final, err := tea.NewProgram(m).Run()
 	if err != nil {
@@ -97,7 +105,7 @@ func RunAsk(client *ollama.Client, model, question string) (AskResult, error) {
 
 func (m askModel) fetch() tea.Cmd {
 	return func() tea.Msg {
-		s, err := suggest.Ask(m.ctx, m.client, m.model, m.question)
+		s, err := suggest.Ask(m.ctx, m.client, m.model, m.history, m.question)
 		return suggestionMsg{s, err}
 	}
 }
@@ -146,6 +154,8 @@ func (m askModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateEditing(msg)
 		case askFilling:
 			return m.updateFilling(msg)
+		case askFollowUp:
+			return m.updateFollowUp(msg)
 		}
 	}
 	return m, nil
@@ -163,6 +173,11 @@ func (m askModel) updateResult(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.input.CursorEnd()
 		m.note = ""
 		return m, m.input.Focus()
+	case "f":
+		m.state = askFollowUp
+		m.follow.SetValue("")
+		m.note = ""
+		return m, m.follow.Focus()
 	case "r":
 		m.state = askLoading
 		m.note = ""
@@ -189,6 +204,30 @@ func (m askModel) updateEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
+	return m, cmd
+}
+
+// updateFollowUp reads a follow-up question and asks it with the current
+// question and suggestion added to the history.
+func (m askModel) updateFollowUp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		q := strings.TrimSpace(m.follow.Value())
+		if q == "" {
+			return m, nil
+		}
+		m.follow.Blur()
+		m.history = append(m.history, suggest.Turn{Question: m.question, Answer: m.sugg})
+		m.question = q
+		m.state = askLoading
+		return m, tea.Batch(m.spinner.Tick, m.fetch())
+	case "esc":
+		m.follow.Blur()
+		m.state = askResult
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.follow, cmd = m.follow.Update(msg)
 	return m, cmd
 }
 
@@ -322,7 +361,7 @@ func (m askModel) View() string {
 		if m.sugg.Dangerous {
 			b.WriteString(" " + warnStyle.Render("⚠ This command can change or delete data. Check it before running.") + "\n")
 		}
-		b.WriteString("\n " + helpLine("enter", "run", "e", "edit", "c", "copy", "r", "retry", "q", "quit") + "\n")
+		b.WriteString("\n " + helpLine("enter", "run", "e", "edit", "c", "copy", "f", "follow-up", "r", "retry", "q", "quit") + "\n")
 		if m.note != "" {
 			b.WriteString(" " + m.note + "\n")
 		}
@@ -330,6 +369,11 @@ func (m askModel) View() string {
 	case askEditing:
 		b.WriteString(m.input.View() + "\n\n")
 		b.WriteString(" " + helpLine("enter", "run", "esc", "back") + "\n")
+
+	case askFollowUp:
+		b.WriteString(commandBox.Render(commandStyle.Render(m.sugg.Command)) + "\n")
+		b.WriteString(" " + m.follow.View() + "\n\n")
+		b.WriteString(" " + helpLine("enter", "ask", "esc", "back") + "\n")
 
 	case askFilling:
 		b.WriteString(commandBox.Render(commandStyle.Render(suggest.Fill(m.command, m.values()))) + "\n")

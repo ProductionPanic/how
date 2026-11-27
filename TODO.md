@@ -25,13 +25,13 @@ Wens van de gebruiker (2026-11-26): bij een placeholder voor een bestand wil je 
 
 Wens van de gebruiker (2026-11-27): na een antwoord wil je er snel iets aan toevoegen zonder de hele vraag opnieuw te typen. Bijvoorbeeld "how do i export this wordpress db" geeft een `mysqldump`-commando, en met de vervolgvraag "with the wp cli" krijg je `wp db export`.
 
-- [ ] `internal/ui/ask.go`: in de suggestieweergave opent `f` een invoerregel voor een vervolgvraag. Enter stuurt hem naar het model en toont de spinner, esc gaat terug naar de suggestie. Een lege vervolgvraag doet niets.
-- [ ] `internal/suggest/suggest.go`: `Ask` krijgt de gespreksgeschiedenis mee: na de few-shot voorbeelden komen alle eerdere vragen (`user`) en antwoorden (`assistant`, als dezelfde JSON die het model teruggaf), dan de nieuwe vervolgvraag. Er kunnen meerdere vervolgvragen achter elkaar komen; de hele geschiedenis gaat steeds mee.
-- [ ] Voeg aan de few-shot voorbeelden één vervolgvraag toe (vraag, antwoord, vervolgvraag, aangepast antwoord), zodat kleine modellen zien dat ze op het vorige commando moeten voortbouwen.
-- [ ] Besloten (2026-11-27): er is geen aparte modus voor "vervangen" of "erachter plakken". Het model kiest dat zelf op basis van de vervolgvraag; de bestaande regel om stappen met `&&` te combineren dekt het erachter plakken.
-- [ ] Besloten (2026-11-27): de vervolgvraag bouwt voort op het commando dat in de weergave staat. (Een bewerking met `e` wordt nu bij esc weggegooid en bij enter meteen uitgevoerd, dus die hoeft niet mee.)
-- [ ] Besloten (2026-11-27): `r` stelt na een vervolgvraag de laatste vraag opnieuw, met dezelfde geschiedenis ervoor.
-- [ ] Besloten (2026-11-27): de hulpregel wordt `enter run · e edit · c copy · f follow-up · r retry · q quit`. De printmodus (`-p`, of als de uitvoer gepipet wordt) blijft ongewijzigd. Werk de README bij met de nieuwe toets.
-- [ ] Tests voor het opbouwen van de berichtenlijst met geschiedenis (volgorde en rollen). Draai `how` daarna zelf in een terminal: stel een vraag, geef een of twee vervolgvragen en controleer dat het nieuwe commando op het vorige voortbouwt, en dat run, copy en retry daarna nog werken.
+- [x] `internal/ui/ask.go`: in de suggestieweergave opent `f` een invoerregel voor een vervolgvraag. Enter stuurt hem naar het model en toont de spinner, esc gaat terug naar de suggestie. Een lege vervolgvraag doet niets.
+- [x] `internal/suggest/suggest.go`: `Ask` krijgt de gespreksgeschiedenis mee: na de few-shot voorbeelden komen alle eerdere vragen (`user`) en antwoorden (`assistant`, als dezelfde JSON die het model teruggaf), dan de nieuwe vervolgvraag. Er kunnen meerdere vervolgvragen achter elkaar komen; de hele geschiedenis gaat steeds mee.
+- [x] Voeg aan de few-shot voorbeelden één vervolgvraag toe (vraag, antwoord, vervolgvraag, aangepast antwoord), zodat kleine modellen zien dat ze op het vorige commando moeten voortbouwen.
+- [x] Besloten (2026-11-27): er is geen aparte modus voor "vervangen" of "erachter plakken". Het model kiest dat zelf op basis van de vervolgvraag; de bestaande regel om stappen met `&&` te combineren dekt het erachter plakken.
+- [x] Besloten (2026-11-27): de vervolgvraag bouwt voort op het commando dat in de weergave staat. (Een bewerking met `e` wordt nu bij esc weggegooid en bij enter meteen uitgevoerd, dus die hoeft niet mee.)
+- [x] Besloten (2026-11-27): `r` stelt na een vervolgvraag de laatste vraag opnieuw, met dezelfde geschiedenis ervoor.
+- [x] Besloten (2026-11-27): de hulpregel wordt `enter run · e edit · c copy · f follow-up · r retry · q quit`. De printmodus (`-p`, of als de uitvoer gepipet wordt) blijft ongewijzigd. Werk de README bij met de nieuwe toets.
+- [x] Tests voor het opbouwen van de berichtenlijst met geschiedenis (volgorde en rollen). Draai `how` daarna zelf in een terminal: stel een vraag, geef een of twee vervolgvragen en controleer dat het nieuwe commando op het vorige voortbouwt, en dat run, copy en retry daarna nog werken.
 
 ## Backlog

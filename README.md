@@ -9,7 +9,7 @@ how -p find big files here         # print only the command (also when piped)
 how -m qwen2.5-coder:3b <question> # one-off model override
 ```
 
-In the suggestion view: `enter` run · `e` edit · `c` copy · `r` retry · `q` quit.
+In the suggestion view: `enter` run · `e` edit · `c` copy · `f` follow-up · `r` retry · `q` quit.
 Commands that delete or overwrite data are shown in red with a warning.
 
 ## Install

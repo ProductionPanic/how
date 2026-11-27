@@ -77,3 +77,40 @@ func TestEditedCommandWithPlaceholderGoesToForm(t *testing.T) {
 		t.Fatalf("got %q", m.result.Command)
 	}
 }
+
+func TestFollowUpAddsTurnToHistory(t *testing.T) {
+	m := resultModel("mysqldump -u <user> -p <database> > dump.sql")
+	m.question = "export this wordpress db"
+	m.follow = textinput.New()
+
+	m = press(t, m, "f", "enter") // empty follow-up: stays
+	if m.state != askFollowUp {
+		t.Fatalf("empty follow-up should stay in the input, got %v", m.state)
+	}
+	m = press(t, m, "with the wp cli", "enter")
+	if m.state != askLoading {
+		t.Fatalf("expected loading, got %v", m.state)
+	}
+	if m.question != "with the wp cli" || len(m.history) != 1 ||
+		m.history[0].Question != "export this wordpress db" ||
+		m.history[0].Answer.Command != "mysqldump -u <user> -p <database> > dump.sql" {
+		t.Fatalf("got question %q history %+v", m.question, m.history)
+	}
+
+	// A second follow-up keeps the whole history.
+	m.state = askResult
+	m.sugg = suggest.Suggestion{Command: "wp db export"}
+	m = press(t, m, "f", "gzip it", "enter")
+	if len(m.history) != 2 || m.history[1].Question != "with the wp cli" || m.question != "gzip it" {
+		t.Fatalf("got question %q history %+v", m.question, m.history)
+	}
+}
+
+func TestFollowUpEscGoesBack(t *testing.T) {
+	m := resultModel("ls")
+	m.follow = textinput.New()
+	m = press(t, m, "f", "esc")
+	if m.state != askResult || len(m.history) != 0 {
+		t.Fatalf("esc should return to the result without asking, got %v", m.state)
+	}
+}
