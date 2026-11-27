@@ -95,7 +95,7 @@ flags:
 	}
 
 	if printOnly {
-		s, err := suggest.Ask(context.Background(), client, model, question)
+		s, err := suggest.Ask(context.Background(), client, model, nil, question)
 		if err != nil {
 			return err
 		}
